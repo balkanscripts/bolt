@@ -24,7 +24,7 @@ PANEL_AUTHOR="vuuletic"
 PANEL_VERSION="3.0"
 DEFAULT_PROD_PORT=6767
 DEFAULT_DEV_PORT=30000
-REPO_URL="https://github.com/balkanscripts/bolt.git.git"
+REPO_URL="https://github.com/balkanscripts/bolt.git"
 
 # High-Contrast Deep ANSI Palette
 C_RESET='\033[0m'
@@ -211,7 +211,7 @@ prompt_theme_selection() {
     echo -e "${C_ELECTRIC_PURPLE}  ╰──────────────────────────────────────────────────────────────────────────╯${C_RESET}"
     echo -e "  Select the primary brand & accent color scheme for the panel interface:"
     echo ""
-    echo -e "  ${C_CRIMSON} [ 1 ] Crimson Red   ${C_MUTED}(Signature JTG Red)${C_RESET}"
+    echo -e "  ${C_CRIMSON} [ 1 ] Crimson Red   ${C_MUTED}(Signature BOLT Red)${C_RESET}"
     echo -e "  ${C_DEEP_BLUE} [ 2 ] Cobalt Blue   ${C_MUTED}(Classic Deep Blue)${C_RESET}"
     echo -e "  ${C_ELECTRIC_PURPLE} [ 3 ] Neon Purple   ${C_MUTED}(Cyberpunk Glow)${C_RESET}"
     echo -e "  ${C_VIBRANT_CYAN} [ 4 ] Cyber Cyan    ${C_MUTED}(Electric Aqua)${C_RESET}"
@@ -306,18 +306,18 @@ prepare_repository() {
     log_info "Preparing application workspace..."
 
     # Check if we are already inside the project workspace
-    if [ -f "package.json" ] && grep -q "jtg-panel" "package.json" 2>/dev/null; then
+    if [ -f "package.json" ] && grep -q "BOLT-panel" "package.json" 2>/dev/null; then
         PROJECT_DIR="$(pwd)"
         log_info "Using current workspace directory: ${PROJECT_DIR}"
-    elif [ -d "Jtg" ]; then
-        PROJECT_DIR="$(pwd)/Jtg"
+    elif [ -d "BOLT" ]; then
+        PROJECT_DIR="$(pwd)/BOLT"
         cd "$PROJECT_DIR"
-        log_info "Found existing 'Jtg' directory. Syncing repository..."
+        log_info "Found existing 'BOLT' directory. Syncing repository..."
         git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
     else
-        log_info "Cloning JTG Panel from ${REPO_URL}..."
-        git clone "$REPO_URL" Jtg
-        PROJECT_DIR="$(pwd)/Jtg"
+        log_info "Cloning BOLT Panel from ${REPO_URL}..."
+        git clone "$REPO_URL" BOLT
+        PROJECT_DIR="$(pwd)/BOLT"
         cd "$PROJECT_DIR"
     fi
 }
@@ -336,11 +336,11 @@ setup_environment() {
 
     # Generate JWT Secret
     local jwt_secret
-    jwt_secret=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 2>/dev/null || echo "jtg_secret_key_$(date +%s)")
+    jwt_secret=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 2>/dev/null || echo "BOLT_secret_key_$(date +%s)")
 
     cat > .env <<EOF
 # ==============================================================================
-# aashi - JTG PANEL Configuration
+# aashi - BOLT PANEL Configuration
 # Credit: vuuletic
 # ==============================================================================
 NODE_ENV=${run_mode}
@@ -389,17 +389,17 @@ configure_pm2_service() {
     fi
 
     # Terminate existing instance if present
-    pm2 delete jtg-panel 2>/dev/null || npx pm2 delete jtg-panel 2>/dev/null || true
+    pm2 delete BOLT-panel 2>/dev/null || npx pm2 delete BOLT-panel 2>/dev/null || true
 
     # Launch daemon
-    PORT="${target_port}" npx pm2 start "scripts/start-with-update.sh" --name "jtg-panel" 2>/dev/null || PORT="${target_port}" npx pm2 start "dist/server.cjs" --name "jtg-panel"
+    PORT="${target_port}" npx pm2 start "scripts/start-with-update.sh" --name "BOLT-panel" 2>/dev/null || PORT="${target_port}" npx pm2 start "dist/server.cjs" --name "BOLT-panel"
     npx pm2 save 2>/dev/null || true
 
     if [ "$EUID" -eq 0 ]; then
         npx pm2 startup systemd -u root --hp /root 2>/dev/null || true
     fi
 
-    log_success "PM2 service 'jtg-panel' registered and active."
+    log_success "PM2 service 'BOLT-panel' registered and active."
 }
 
 create_initial_admin() {
@@ -444,8 +444,8 @@ install_production() {
     echo ""
     echo -e "  ${C_MUTED}┌── Useful Management Commands ───────────────────────────────────────────┐${C_RESET}"
     echo -e "  ${C_MUTED}│${C_RESET} Check Status:     ${C_VIBRANT_CYAN}npx pm2 status${C_RESET}"
-    echo -e "  ${C_MUTED}│${C_RESET} Live Logs:        ${C_VIBRANT_CYAN}npx pm2 logs jtg-panel${C_RESET}"
-    echo -e "  ${C_MUTED}│${C_RESET} Restart Panel:    ${C_VIBRANT_CYAN}npx pm2 restart jtg-panel${C_RESET}"
+    echo -e "  ${C_MUTED}│${C_RESET} Live Logs:        ${C_VIBRANT_CYAN}npx pm2 logs BOLT-panel${C_RESET}"
+    echo -e "  ${C_MUTED}│${C_RESET} Restart Panel:    ${C_VIBRANT_CYAN}npx pm2 restart BOLT-panel${C_RESET}"
     echo -e "  ${C_MUTED}│${C_RESET} Update Panel:     ${C_VIBRANT_CYAN}bash update.sh${C_RESET}"
     echo -e "  ${C_MUTED}│${C_RESET} Uninstall:        ${C_VIBRANT_CYAN}bash uninstall.sh${C_RESET}"
     echo -e "  ${C_MUTED}└─────────────────────────────────────────────────────────────────────────┘${C_RESET}"
@@ -505,13 +505,13 @@ while true; do
             read -r -p "  Press Enter to return to main menu..." _
             ;;
         4)
-            npm run createuser || (cd Jtg && npm run createuser)
+            npm run createuser || (cd BOLT && npm run createuser)
             echo ""
             read -r -p "  Press Enter to return to main menu..." _
             ;;
         5)
-            log_info "Restarting JTG Panel..."
-            pm2 restart jtg-panel 2>/dev/null || npx pm2 restart jtg-panel 2>/dev/null || npm run start:auto-update
+            log_info "Restarting BOLT Panel..."
+            pm2 restart BOLT-panel 2>/dev/null || npx pm2 restart BOLT-panel 2>/dev/null || npm run start:auto-update
             log_success "Panel service restarted."
             echo ""
             read -r -p "  Press Enter to return to main menu..." _
