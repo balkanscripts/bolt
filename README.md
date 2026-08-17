@@ -2,8 +2,8 @@
 
 Welcome to **JTG Panel**, a game server management & container orchestration platform built for Minecraft and generic game servers.
 
-**Created & Maintained by [Jishnu](https://github.com/)**  
-**Version:** `v3.0.0`
+**Created & Maintained by [vuuletic](https://github.com/balkanscripts)**  
+**Version:** `v2.2`
 
 ---
 
