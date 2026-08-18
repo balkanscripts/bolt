@@ -1,6 +1,6 @@
-# JTG Panel 🚀
+# BOLT Panel 🚀
 
-Welcome to **JTG Panel**, a game server management & container orchestration platform built for Minecraft and generic game servers.
+Welcome to **BOLT Panel**, a game server management & container orchestration platform built for Minecraft and generic game servers.
 
 **Created & Maintained by [vuuletic](https://github.com/balkanscripts)**  
 **Version:** `v2.2`
@@ -48,7 +48,7 @@ bash uninstall.sh
 
 This project is licensed under the **MIT License** with attribution requirements.
 
-> **Important**: You are free to use, modify, host, and distribute this project, but you **MUST give proper attribution and credit to the original author (Jishnu / JTG Panel)** in all copies or derivative works.
+> **Important**: You are free to use, modify, host, and distribute this project, but you **MUST give proper attribution and credit to the original author (vuuletic / BOLT Panel)** in all copies or derivative works.
 
 See the [LICENSE](./LICENSE) file for complete license terms.
 
