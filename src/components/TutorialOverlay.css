@@ -214,8 +214,8 @@
 .red .head {
   height: 110px;
   width: 120px;
-  background: #dccd00;
-  border: 2px solid #686a03;
+  background: #DC002D;
+  border: 2px solid #6A0306;
   border-radius: 45% 55% 45% 45% / 55% 60% 40% 45%;
   box-shadow: inset -10px 8px 15px -5px rgba(237, 178, 144, 0.7);
   overflow: hidden;
@@ -247,7 +247,7 @@
   height: 26px;
   width: 24px;
   background: #FFFFFF;
-  border: 2px solid #6a6303;
+  border: 2px solid #6A0306;
   border-radius: 50%;
   box-shadow: -2px 2px 2px 3px rgba(0, 0, 0, 0.2);
 }
@@ -333,10 +333,10 @@
   left: 28px;
   height: 30px;
   width: 12px;
-  background: #dcd800;
+  background: #DC002D;
   border-radius: 50%;
   transform: rotate(-70deg);
-  border: 2px solid #6a6303;
+  border: 2px solid #6A0306;
   border-bottom-color: transparent;
 }
 
@@ -346,10 +346,10 @@
   left: 8px;
   height: 100%;
   width: 100%;
-  background: #d8dc00;
+  background: #DC002D;
   border-radius: inherit;
   transform: rotate(20deg);
-  border: 2px solid #686a03;
+  border: 2px solid #6A0306;
   border-bottom-color: transparent;
 }
 
@@ -360,7 +360,7 @@
   transform: rotate(70deg);
   height: 20px;
   width: 30px;
-  background: #cddc00;
+  background: #DC002D;
   border-radius: 50%;
 }
 

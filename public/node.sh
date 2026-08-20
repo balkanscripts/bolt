@@ -1,5 +1,5 @@
 #!/bin/bash
-# Node Installer Script for BOLT Panel
+# Node Installer Script for bolt Panel
 # This script sets up a remote node for the panel
 
 PORT=6768
@@ -15,7 +15,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 echo "======================================"
-echo "    BOLT Panel Node Setup Script       "
+echo "    bolt Panel Node Setup Script       "
 echo "======================================"
 
 # Check for root
@@ -50,15 +50,15 @@ if ! command -v pm2 &> /dev/null; then
 fi
 
 # Setup Agent Directory
-mkdir -p /opt/BOLT-panel-node
-cd /opt/BOLT-panel-node
+mkdir -p /opt/bolt-panel-node
+cd /opt/bolt-panel-node
 
 # Create package.json
 cat << 'PKGEOF' > package.json
 {
-  "name": "BOLT-panel-node",
+  "name": "bolt-panel-node",
   "version": "1.0.0",
-  "description": "Node agent for BOLT Panel",
+  "description": "Node agent for bolt Panel",
   "main": "agent.js",
   "dependencies": {
     "express": "^4.18.2",
@@ -85,7 +85,7 @@ app.get('/health', (req, res) => {
   console.log('[GET /health] Health check requested');
   res.status(200).json({
     ok: true,
-    service: "BOLT-node",
+    service: "bolt-node",
     status: "online"
   });
 });
@@ -138,9 +138,9 @@ echo "NODE_KEY=$NODE_KEY" > .env
 echo "PORT=$PORT" >> .env
 
 echo "[+] Starting Node Agent..."
-pm2 stop BOLT-node 2>/dev/null || true
-pm2 delete BOLT-node 2>/dev/null || true
-pm2 start agent.js --name BOLT-node
+pm2 stop bolt-node 2>/dev/null || true
+pm2 delete bolt-node 2>/dev/null || true
+pm2 start agent.js --name bolt-node
 pm2 save
 pm2 startup | tail -n 1 > pm2-startup.sh
 chmod +x pm2-startup.sh

@@ -161,10 +161,18 @@ export default function FileManager({ serverId }: { serverId: string }) {
   const handleDownload = (itemName: string, isDirectory: boolean) => {
     const p = path.endsWith("/") ? path : path + "/";
     const fullPath = p + itemName;
-    const downloadUrl = `/api/servers/${serverId}/files/download?path=${encodeURIComponent(fullPath)}`;
-    window.open(downloadUrl, "_blank");
-    showToast(`Downloading ${isDirectory ? itemName + ".zip" : itemName}...`, "success");
+    const token = localStorage.getItem("BOLT_token") || localStorage.getItem("token");
     setOpenMenuRow(null);
+    showToast(`Downloading ${isDirectory ? itemName + ".zip" : itemName}...`, "success");
+
+    const downloadUrl = `/api/servers/${serverId}/files/download?path=${encodeURIComponent(fullPath)}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = isDirectory ? `${itemName}.zip` : itemName;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Bulk Download
@@ -179,10 +187,18 @@ export default function FileManager({ serverId }: { serverId: string }) {
       return;
     }
 
-    const queryPaths = selectedList.map(name => encodeURIComponent(p + name)).join("&paths=");
-    const downloadUrl = `/api/servers/${serverId}/files/download?paths=${queryPaths}`;
-    window.open(downloadUrl, "_blank");
+    const token = localStorage.getItem("BOLT_token") || localStorage.getItem("token");
     showToast(`Preparing download for ${selectedList.length} items...`, "success");
+
+    const queryPaths = selectedList.map(name => encodeURIComponent(p + name)).join("&paths=");
+    const downloadUrl = `/api/servers/${serverId}/files/download?paths=${queryPaths}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = `files-archive-${Date.now()}.zip`;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // 2. Create File
@@ -1002,7 +1018,10 @@ export default function FileManager({ serverId }: { serverId: string }) {
         )}
       </AnimatePresence>
 
-      {(isUnzipping || isZipping || isSaving || isDeleting) && <LoadingOverlay />}
+      {isUnzipping && <LoadingOverlay message="Extracting Archive..." subMessage="Unpacking compressed files into current directory..." />}
+      {isZipping && <LoadingOverlay message="Creating Archive..." subMessage="Compressing selected files into ZIP archive..." />}
+      {isDeleting && <LoadingOverlay message="Deleting Files..." subMessage="Permanently removing selected items from filesystem..." />}
+      {isSaving && <LoadingOverlay message="Saving File Content..." subMessage="Writing changes to disk..." />}
     </div>
   );
 }

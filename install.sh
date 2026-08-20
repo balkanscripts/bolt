@@ -7,10 +7,10 @@
 #  ██   ██╔═██╗   ██║ ██║ ██║    ██║      ██║╚██╗██║██╔══╝     ██║   ██║███╗██║ ██║   ██║ ██╔═██╗ 
 #  █████╔╝  ╚██████╔╝ ███████╗   ██║      ██║ ╚████║███████╗   ██║   ╚███╔███╔╝ ██████╔╝  ██║  ██╗
 #  ╚════╝    ╚═════╝  ╚══════╝   ╚═╝      ╚═╝  ╚═══╝╚══════╝   ╚═╝    ╚══╝╚══╝  ╚═════╝   ╚═╝  ╚═╝
-#================================================================================
-#  Product Name : 2.1v- BOLT PANEL
+#
+#  Product Name : v3.1.0 - BOLT PANEL
 #  Panel Banner : BOLT PANEL
-#  Version      : 2.1v
+#  Version      : v3.1.0
 #  Creator      : vuuletic
 #  Repository   : https://github.com/balkanscripts/bolt.git
 # ==============================================================================
@@ -19,9 +19,9 @@ set -e
 
 # Panel Core Configuration
 PANEL_TITLE="BOLT PANEL"
-PANEL_SUBTITLE="2.1v - BOLT PANEL"
+PANEL_SUBTITLE="aashi - BOLT PANEL"
 PANEL_AUTHOR="vuuletic"
-PANEL_VERSION="3.0"
+PANEL_VERSION="3.1.0"
 DEFAULT_PROD_PORT=6767
 DEFAULT_DEV_PORT=30000
 REPO_URL="https://github.com/balkanscripts/bolt.git"
@@ -63,7 +63,7 @@ print_banner() {
     echo -e "${C_DEEP_BLUE}  │ ${C_WHITE}${C_BOLD}                     ${PANEL_SUBTITLE} (v${PANEL_VERSION})                         ${C_DEEP_BLUE}│${C_RESET}"
     echo -e "${C_DEEP_BLUE}  │ ${C_MUTED}         Next-Gen Game Server & Workload Control Dashboard                ${C_DEEP_BLUE}│${C_RESET}"
     echo -e "${C_DEEP_BLUE}  │ ${C_AMBER}                  Credit / Author: ${C_WHITE}${C_BOLD}${PANEL_AUTHOR}                               ${C_DEEP_BLUE}│${C_RESET}"
-    echo -e "${C_DEEP_BLUE}  │ ${C_VIBRANT_CYAN}         Repo: ${C_WHITE}https://github.com/balkanscripts/bolt.git                      ${C_DEEP_BLUE}│${C_RESET}"
+    echo -e "${C_DEEP_BLUE}  │ ${C_VIBRANT_CYAN}         Repo: ${C_WHITE}https://github.com/balkanscripts/bolt.git                     ${C_DEEP_BLUE}│${C_RESET}"
     echo -e "${C_DEEP_BLUE}  ╰──────────────────────────────────────────────────────────────────────────╯${C_RESET}"
     echo ""
 }
@@ -302,13 +302,72 @@ prompt_docker_install() {
     fi
 }
 
+# ==============================================================================
+# SMART DIRECTORY DETECTION & RESOLUTION (BOLT & cd.j)
+# ==============================================================================
+is_bolt_directory() {
+    local target_dir="$1"
+    if [ -f "${target_dir}/package.json" ] && grep -q '"name": "bolt-panel"' "${target_dir}/package.json" 2>/dev/null; then
+        return 0
+    fi
+    if [ -f "${target_dir}/package.json" ] && [ -f "${target_dir}/server.ts" ]; then
+        return 0
+    fi
+    return 1
+}
+
+ensure_bolt_directory() {
+    # 1. If currently inside BOLT Panel directory
+    if is_bolt_directory "."; then
+        return 0
+    fi
+
+    # 2. Check directory of running script
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+    if [ -n "$script_dir" ] && is_bolt_directory "$script_dir"; then
+        cd "$script_dir"
+        return 0
+    fi
+
+    # 3. Check known candidate folders
+    local candidate_paths=(
+        "./BOLT" "./bolt" "./BOLT"
+        "../BOLT" "../bolt"
+        "$HOME/BOLT" "$HOME/bolt"
+        "/root/BOLT" "/root/bolt"
+        "/var/www/BOLT" "/var/www/bolt"
+        "/opt/BOLT" "/opt/bolt"
+    )
+
+    for path in "${candidate_paths[@]}"; do
+        if [ -d "$path" ] && is_bolt_directory "$path"; then
+            cd "$path"
+            log_info "Detected BOLT Panel directory at: ${C_VIBRANT_CYAN}$(pwd)${C_RESET}"
+            return 0
+        fi
+    done
+
+    # 4. Search filesystem
+    local search_result
+    search_result=$(find /root /home /var/www /opt . -maxdepth 3 -type d \( -name "BOLT" -o -name "bolt" -o -name "BOLT" \) 2>/dev/null | head -n 1)
+    if [ -n "$search_result" ] && is_bolt_directory "$search_result"; then
+        cd "$search_result"
+        log_info "Located BOLT Panel directory at: ${C_VIBRANT_CYAN}$(pwd)${C_RESET}"
+        return 0
+    fi
+
+    return 1
+}
+
 prepare_repository() {
     log_info "Preparing application workspace..."
 
-    # Check if we are already inside the project workspace
-    if [ -f "package.json" ] && grep -q "BOLT-panel" "package.json" 2>/dev/null; then
+    # Check if we are already inside or can auto-locate existing workspace
+    if ensure_bolt_directory; then
         PROJECT_DIR="$(pwd)"
-        log_info "Using current workspace directory: ${PROJECT_DIR}"
+        log_info "Using active workspace directory: ${PROJECT_DIR}"
+        git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
     elif [ -d "BOLT" ]; then
         PROJECT_DIR="$(pwd)/BOLT"
         cd "$PROJECT_DIR"
@@ -316,8 +375,8 @@ prepare_repository() {
         git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
     else
         log_info "Cloning BOLT Panel from ${REPO_URL}..."
-        git clone "$REPO_URL" BOLT
-        PROJECT_DIR="$(pwd)/BOLT"
+        git clone "$REPO_URL" bolt
+        PROJECT_DIR="$(pwd)/bolt"
         cd "$PROJECT_DIR"
     fi
 }
@@ -336,12 +395,12 @@ setup_environment() {
 
     # Generate JWT Secret
     local jwt_secret
-    jwt_secret=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 2>/dev/null || echo "BOLT_secret_key_$(date +%s)")
+    jwt_secret=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 2>/dev/null || echo "bolt_secret_key_$(date +%s)")
 
     cat > .env <<EOF
 # ==============================================================================
 # aashi - BOLT PANEL Configuration
-# Credit: vuuletic
+# Credit: Jishnu
 # ==============================================================================
 NODE_ENV=${run_mode}
 PORT=${target_port}
@@ -389,17 +448,17 @@ configure_pm2_service() {
     fi
 
     # Terminate existing instance if present
-    pm2 delete BOLT-panel 2>/dev/null || npx pm2 delete BOLT-panel 2>/dev/null || true
+    pm2 delete bolt-panel 2>/dev/null || npx pm2 delete bolt-panel 2>/dev/null || true
 
     # Launch daemon
-    PORT="${target_port}" npx pm2 start "scripts/start-with-update.sh" --name "BOLT-panel" 2>/dev/null || PORT="${target_port}" npx pm2 start "dist/server.cjs" --name "BOLT-panel"
+    PORT="${target_port}" npx pm2 start "scripts/start-with-update.sh" --name "bolt-panel" 2>/dev/null || PORT="${target_port}" npx pm2 start "dist/server.cjs" --name "bolt-panel"
     npx pm2 save 2>/dev/null || true
 
     if [ "$EUID" -eq 0 ]; then
         npx pm2 startup systemd -u root --hp /root 2>/dev/null || true
     fi
 
-    log_success "PM2 service 'BOLT-panel' registered and active."
+    log_success "PM2 service 'bolt-panel' registered and active."
 }
 
 create_initial_admin() {
@@ -444,8 +503,8 @@ install_production() {
     echo ""
     echo -e "  ${C_MUTED}┌── Useful Management Commands ───────────────────────────────────────────┐${C_RESET}"
     echo -e "  ${C_MUTED}│${C_RESET} Check Status:     ${C_VIBRANT_CYAN}npx pm2 status${C_RESET}"
-    echo -e "  ${C_MUTED}│${C_RESET} Live Logs:        ${C_VIBRANT_CYAN}npx pm2 logs BOLT-panel${C_RESET}"
-    echo -e "  ${C_MUTED}│${C_RESET} Restart Panel:    ${C_VIBRANT_CYAN}npx pm2 restart BOLT-panel${C_RESET}"
+    echo -e "  ${C_MUTED}│${C_RESET} Live Logs:        ${C_VIBRANT_CYAN}npx pm2 logs bolt-panel${C_RESET}"
+    echo -e "  ${C_MUTED}│${C_RESET} Restart Panel:    ${C_VIBRANT_CYAN}npx pm2 restart bolt-panel${C_RESET}"
     echo -e "  ${C_MUTED}│${C_RESET} Update Panel:     ${C_VIBRANT_CYAN}bash update.sh${C_RESET}"
     echo -e "  ${C_MUTED}│${C_RESET} Uninstall:        ${C_VIBRANT_CYAN}bash uninstall.sh${C_RESET}"
     echo -e "  ${C_MUTED}└─────────────────────────────────────────────────────────────────────────┘${C_RESET}"
@@ -500,24 +559,52 @@ while true; do
             read -r -p "  Press Enter to return to main menu..." _
             ;;
         3)
-            bash update.sh
+            if [ -f "update.sh" ]; then
+                bash update.sh
+            elif ensure_bolt_directory && [ -f "update.sh" ]; then
+                bash update.sh
+            else
+                log_error "Could not find BOLT Panel update script."
+            fi
             echo ""
             read -r -p "  Press Enter to return to main menu..." _
             ;;
         4)
-            npm run createuser || (cd BOLT && npm run createuser)
+            ensure_bolt_directory || true
+            if [ -f "package.json" ]; then
+                npm run createuser
+            elif [ -d "BOLT" ]; then
+                (cd BOLT && npm run createuser)
+            else
+                log_error "BOLT Panel directory not found for user creation."
+            fi
             echo ""
             read -r -p "  Press Enter to return to main menu..." _
             ;;
         5)
+            ensure_bolt_directory || true
             log_info "Restarting BOLT Panel..."
-            pm2 restart BOLT-panel 2>/dev/null || npx pm2 restart BOLT-panel 2>/dev/null || npm run start:auto-update
+            if command -v pm2 &> /dev/null && pm2 list 2>/dev/null | grep -q "bolt-panel"; then
+                pm2 restart bolt-panel
+            elif command -v npx &> /dev/null && npx pm2 list 2>/dev/null | grep -q "bolt-panel"; then
+                npx pm2 restart bolt-panel
+            elif command -v systemctl &> /dev/null && systemctl is-active --quiet bolt-panel 2>/dev/null; then
+                sudo systemctl restart bolt-panel
+            else
+                npm run start:auto-update 2>/dev/null || (node dist/server.cjs &)
+            fi
             log_success "Panel service restarted."
             echo ""
             read -r -p "  Press Enter to return to main menu..." _
             ;;
         6)
-            bash uninstall.sh
+            if [ -f "uninstall.sh" ]; then
+                bash uninstall.sh
+            elif ensure_bolt_directory && [ -f "uninstall.sh" ]; then
+                bash uninstall.sh
+            else
+                bash <(curl -fsSL https://raw.githubusercontent.com/balkanscripts/bolt/main/uninstall.sh 2>/dev/null) || true
+            fi
             exit 0
             ;;
         7)

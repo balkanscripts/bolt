@@ -4,8 +4,22 @@
 # BOLT Panel - Start with Auto-Update Check on Restart
 # ==============================================================================
 
-cd "$(dirname "$0")/.." || exit 1
+# Locate panel directory safely
+if [ -f "package.json" ] && grep -q '"name": "bolt-panel"' "package.json" 2>/dev/null; then
+    PANEL_DIR="$(pwd)"
+elif [ -f "$(dirname "$0")/../package.json" ]; then
+    PANEL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+elif [ -d "$HOME/bolt" ]; then
+    PANEL_DIR="$HOME/bolt"
+elif [ -d "/root/BOLT" ]; then
+    PANEL_DIR="/root/bolt"
+else
+    PANEL_DIR="$(pwd)"
+fi
 
+cd "$PANEL_DIR" || exit 1
+
+echo "[BOLT Panel] Working Directory: $(pwd)"
 echo "[BOLT Panel] Checking for updates from repository on restart..."
 
 if command -v git &> /dev/null && [ -d ".git" ]; then
@@ -20,7 +34,7 @@ if command -v git &> /dev/null && [ -d ".git" ]; then
         git pull --ff-only origin main 2>/dev/null || git pull --ff-only origin master 2>/dev/null || git pull || true
         
         echo "[BOLT Panel] Installing updated dependencies..."
-        npm install --no-audit --no-fund || true
+        npm install --no-audit --no-fund --quiet || true
         
         echo "[BOLT Panel] Compiling production build..."
         npm run build || true
