@@ -4,7 +4,7 @@ import axios from "axios";
 import { pipeline } from "stream/promises";
 
 const DEFAULT_HEADERS = {
-  "User-Agent": "BOLTPanel/2.2 (https://github.com/jishnu; support@jtgpanel.net)",
+  "User-Agent": "BOLTPanel/2.2 (https://github.com/balkanscripts; support@bolthosting.xyz)",
   "Accept": "*/*"
 };
 
