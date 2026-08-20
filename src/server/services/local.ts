@@ -4,8 +4,11 @@ import { spawn, ChildProcess } from "child_process";
 import { promisify } from "util";
 import { exec } from "child_process";
 import axios from "axios";
+import pidusage from "pidusage";
 import { downloadJar } from "./jarDownloader.js";
 import { panelEvents } from "../events.js";
+import { getServerDiskUsageGB, calculateLocalMemoryStats } from "./metrics.js";
+import { readJSON } from "./db.js";
 
 const execAsync = promisify(exec);
 const processes = new Map<string, ChildProcess>();
@@ -18,12 +21,15 @@ export const resolveJavaBinary = async (serverData?: any, onLog?: (msg: string) 
   }
 
   // Determine target Java major version (8, 11, 17, 21, 25)
-  let targetVer = "21";
-  if (serverData?.javaVersion && String(serverData.javaVersion).trim() !== "") {
+  let targetVer = "25";
+  if (serverData?.javaVersion && String(serverData.javaVersion).trim() !== "" && String(serverData.javaVersion).trim().toLowerCase() !== "auto") {
     targetVer = String(serverData.javaVersion).trim().toLowerCase().replace(/^java-?/, '');
-  } else if (serverData?.version) {
-    const verStr = String(serverData.version).toLowerCase();
+  } else {
+    const verStr = String(serverData?.version || "latest").toLowerCase().trim();
     if (
+      verStr === "latest" ||
+      verStr === "" ||
+      verStr === "default" ||
       verStr.startsWith("26") ||
       verStr.startsWith("1.26") ||
       verStr.startsWith("1.25") ||
@@ -41,8 +47,10 @@ export const resolveJavaBinary = async (serverData?: any, onLog?: (msg: string) 
       targetVer = "11";
     } else if (verStr.startsWith("1.17") || verStr.startsWith("1.18") || verStr.startsWith("1.19") || verStr.startsWith("1.20.1") || verStr.startsWith("1.20.2") || verStr.startsWith("1.20.3") || verStr.startsWith("1.20.4")) {
       targetVer = "17";
-    } else {
+    } else if (verStr.startsWith("1.21") || verStr.startsWith("1.20.5") || verStr.startsWith("1.20.6")) {
       targetVer = "21";
+    } else {
+      targetVer = "25";
     }
   }
 
@@ -440,16 +448,21 @@ export const startLocalServer = async (id: string, serverData: any) => {
         stdio: ["pipe", "pipe", "pipe"]
       });
     } else {
-      child = spawn(javaBin, [
-        "-Xms128M",
+      const javaArgs = [
+        `-Xms${memoryMb}M`,
         `-Xmx${memoryMb}M`,
         "-Dterminal.jline=false",
         "-Dterminal.ansi=true",
         "-Dfile.encoding=UTF-8",
+        ...(serverData.ignoreWorldDataVersion === true ? ["-DPaper.IgnoreWorldDataVersion=true"] : []),
         "-jar",
         "server.jar",
         "--nogui"
-      ], {
+      ];
+      if (serverData.ignoreWorldDataVersion === true) {
+        logMessage(`[SAFETY AUDIT] Warning: Starting local server with Paper.IgnoreWorldDataVersion=true. Enabled by admin: ${serverData.ignoreWorldDataVersionAdmin || "admin"}`);
+      }
+      child = spawn(javaBin, javaArgs, {
         cwd: serverPath,
         stdio: ["pipe", "pipe", "pipe"]
       });
@@ -540,30 +553,132 @@ export const getLocalServerStatus = async (id: string) => {
 };
 
 export const getLocalServerStats = async (id: string) => {
-  const child = processes.get(id);
-  if (!child || !child.pid) return null;
-
+  const disk = await getServerDiskUsageGB(id);
+  
+  let configuredRamGB = 2;
+  let serverType = "minecraft";
   try {
-    const { stdout } = await execAsync(`ps -p ${child.pid} -o %cpu,rss`);
-    const lines = stdout.trim().split("\n");
-    if (lines.length > 1) {
-      const parts = lines[1].trim().split(/\s+/);
-      const cpu = parseFloat(parts[0]);
-      const rss = parseInt(parts[1]) * 1024;
-      return {
-        cpu_stats: { cpu_usage: { total_usage: cpu }, system_cpu_usage: 100 },
-        precpu_stats: { cpu_usage: { total_usage: 0 }, system_cpu_usage: 100 },
-        memory_stats: { usage: rss, limit: 1024 * 1024 * 1024 * 4 }
-      };
+    const servers = (await readJSON("servers.json")) || [];
+    const matched = servers.find((s: any) => s.id === id);
+    if (matched) {
+      if (typeof matched.ram === "number" && matched.ram > 0) configuredRamGB = matched.ram;
+      if (matched.type) serverType = matched.type;
     }
-  } catch (e) {
-    // ignore
+  } catch {}
+
+  const configuredLimitBytes = Math.round(configuredRamGB * 1024 * 1024 * 1024);
+  const child = processes.get(id);
+
+  if (!child || !child.pid || child.killed) {
+    return {
+      cpu: 0,
+      ram: 0,
+      disk,
+      memory: {
+        usedBytes: 0,
+        limitBytes: configuredLimitBytes,
+        cacheBytes: 0,
+        rawUsageBytes: 0,
+        overLimit: false,
+        includesHostMemory: false as const
+      },
+      cpuStats: {
+        percent: 0,
+        includesHostCpu: false as const
+      },
+      source: "unavailable" as const
+    };
   }
 
+  // Check if PID is alive
+  try {
+    process.kill(child.pid, 0);
+  } catch {
+    return {
+      cpu: 0,
+      ram: 0,
+      disk,
+      memory: {
+        usedBytes: 0,
+        limitBytes: configuredLimitBytes,
+        cacheBytes: 0,
+        rawUsageBytes: 0,
+        overLimit: false,
+        includesHostMemory: false as const
+      },
+      cpuStats: {
+        percent: 0,
+        includesHostCpu: false as const
+      },
+      source: "unavailable" as const
+    };
+  }
+
+  // Discover full process tree belonging to this server child PID
+  const pids = [child.pid];
+  try {
+    const { stdout } = await execAsync(`pgrep -P ${child.pid} 2>/dev/null || ps --ppid ${child.pid} -o pid= 2>/dev/null`);
+    const childPids = stdout
+      .trim()
+      .split(/\s+/)
+      .map((p) => parseInt(p, 10))
+      .filter((p) => !isNaN(p) && p > 0);
+    pids.push(...childPids);
+  } catch {}
+
+  let totalMemoryBytes = 0;
+  let totalCpu = 0;
+
+  try {
+    const stats: any = await pidusage(pids);
+    if (stats) {
+      const statArr = Array.isArray(stats)
+        ? stats
+        : typeof stats === "object" && stats.cpu !== undefined
+        ? [stats]
+        : Object.values(stats);
+
+      for (const st of statArr as any[]) {
+        if (st) {
+          totalCpu += Number(st.cpu) || 0;
+          totalMemoryBytes += Number(st.memory) || 0;
+        }
+      }
+    }
+  } catch (e) {
+    // Process might have briefly stopped or pidusage error, fallback to ps for strictly these PIDs
+    try {
+      const { stdout } = await execAsync(`ps -o %cpu,rss -p ${pids.join(",")} 2>/dev/null`);
+      const lines = stdout.trim().split("\n");
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].trim().split(/\s+/);
+        const cpu = parseFloat(parts[0]) || 0;
+        const rssKB = parseInt(parts[1], 10) || 0;
+        totalCpu += cpu;
+        totalMemoryBytes += rssKB * 1024;
+      }
+    } catch {}
+  }
+
+  const memoryStats = calculateLocalMemoryStats([{ memory: totalMemoryBytes }], configuredRamGB);
+  const ramMB = Math.round(memoryStats.usedBytes / (1024 * 1024));
+  const boundedCpu = parseFloat(Math.max(0, Math.min(totalCpu, 400)).toFixed(1));
+
+  const source =
+    serverType === "nodejs" || serverType === "node" || serverType === "python"
+      ? ("local-process" as const)
+      : ("local-java-process" as const);
+
   return {
-    cpu_stats: { cpu_usage: { total_usage: 0 }, system_cpu_usage: 100 },
-    precpu_stats: { cpu_usage: { total_usage: 0 }, system_cpu_usage: 100 },
-    memory_stats: { usage: 0, limit: 1024 * 1024 * 1024 }
+    cpu: boundedCpu,
+    ram: ramMB,
+    disk,
+    memory: memoryStats,
+    cpuStats: {
+      percent: boundedCpu,
+      includesHostCpu: false as const
+    },
+    source
   };
 };
 

@@ -8,9 +8,9 @@
 #  █████╔╝  ╚██████╔╝ ███████╗   ██║      ██║ ╚████║███████╗   ██║   ╚███╔███╔╝ ██████╔╝  ██║  ██╗
 #  ╚════╝    ╚═════╝  ╚══════╝   ╚═╝      ╚═╝  ╚═══╝╚══════╝   ╚═╝    ╚══╝╚══╝  ╚═════╝   ╚═╝  ╚═╝
 #================================================================================
-#  Product Name : 2.1v- BOLT PANEL
+#  Product Name : 3.2.0v - BOLT PANEL
 #  Panel Banner : BOLT PANEL
-#  Version      : 2.1v
+#  Version      : 3.2.0v
 #  Creator      : vuuletic
 #  Repository   : https://github.com/balkanscripts/bolt.git
 # ==============================================================================
@@ -19,10 +19,10 @@ set -e
 
 # Panel Core Configuration
 PANEL_TITLE="BOLT PANEL"
-PANEL_SUBTITLE="2.1v - BOLT PANEL"
+PANEL_SUBTITLE="aashi - BOLT PANEL"
 PANEL_AUTHOR="vuuletic"
-PANEL_VERSION="3.0"
-DEFAULT_PROD_PORT=6767
+PANEL_VERSION="3.2.0"
+DEFAULT_PROD_PORT=1312
 DEFAULT_DEV_PORT=30000
 REPO_URL="https://github.com/balkanscripts/bolt.git"
 
@@ -52,12 +52,12 @@ BG_PURPLE='\033[48;5;93;38;5;255m'
 print_banner() {
     clear
     echo -e "${C_VIBRANT_CYAN}${C_BOLD}"
-    echo " ██████╗   ██████╗  ██╗     ████████╗   ███╗   ██╗███████╗████████╗██╗    ██╗ ██████╗   ██╗  ██╗     "
-    echo " ██╔══██╗ ██╔═══██╗ ██║     ╚══██╔══╝   ████╗  ██║██╔════╝╚══██╔══╝██║    ██║ ██╔═══██╗ ██║ ██╔╝"
-    echo " ██████╔╝ ██║   ██║ ██║        ██║      ██╔██╗ ██║█████╗     ██║   ██║ █╗ ██║ ██║   ██║ █████╔╝ "
-    echo " ██   ██╔═██╗   ██║ ██║ ██║    ██║      ██║╚██╗██║██╔══╝     ██║   ██║███╗██║ ██║   ██║ ██╔═██╗ "
-    echo " █████╔╝  ╚██████╔╝ ███████╗   ██║      ██║ ╚████║███████╗   ██║   ╚███╔███╔╝ ██████╔╝  ██║  ██╗"
-    echo " ╚════╝    ╚═════╝  ╚══════╝   ╚═╝      ╚═╝  ╚═══╝╚══════╝   ╚═╝    ╚══╝╚══╝  ╚═════╝   ╚═╝  ╚═╝"
+    echo "  ██████╗   ██████╗  ██╗     ████████╗   ███╗   ██╗███████╗████████╗██╗    ██╗ ██████╗   ██╗  ██╗"
+    echo "  ██╔══██╗ ██╔═══██╗ ██║     ╚══██╔══╝   ████╗  ██║██╔════╝╚══██╔══╝██║    ██║ ██╔═══██╗ ██║ ██╔╝"
+    echo "  ██████╔╝ ██║   ██║ ██║        ██║      ██╔██╗ ██║█████╗     ██║   ██║ █╗ ██║ ██║   ██║ █████╔╝ "
+    echo "  ██   ██╔═██╗   ██║ ██║ ██║    ██║      ██║╚██╗██║██╔══╝     ██║   ██║███╗██║ ██║   ██║ ██╔═██╗"
+    echo "  █████╔╝  ╚██████╔╝ ███████╗   ██║      ██║ ╚████║███████╗   ██║   ╚███╔███╔╝ ██████╔╝  ██║  ██╗"
+    echo "  ╚════╝    ╚═════╝  ╚══════╝   ╚═╝      ╚═╝  ╚═══╝╚══════╝   ╚═╝    ╚══╝╚══╝  ╚═════╝   ╚═╝  ╚═╝"
     echo -e "${C_RESET}"
     echo -e "${C_DEEP_BLUE}  ╭──────────────────────────────────────────────────────────────────────────╮${C_RESET}"
     echo -e "${C_DEEP_BLUE}  │ ${C_WHITE}${C_BOLD}                     ${PANEL_SUBTITLE} (v${PANEL_VERSION})                         ${C_DEEP_BLUE}│${C_RESET}"
@@ -302,13 +302,72 @@ prompt_docker_install() {
     fi
 }
 
+# ==============================================================================
+# SMART DIRECTORY DETECTION & RESOLUTION (BOLT & cd.j)
+# ==============================================================================
+is_BOLT_directory() {
+    local target_dir="$1"
+    if [ -f "${target_dir}/package.json" ] && grep -q '"name": "BOLT-panel"' "${target_dir}/package.json" 2>/dev/null; then
+        return 0
+    fi
+    if [ -f "${target_dir}/package.json" ] && [ -f "${target_dir}/server.ts" ]; then
+        return 0
+    fi
+    return 1
+}
+
+ensure_BOLT_directory() {
+    # 1. If currently inside BOLT Panel directory
+    if is_BOLT_directory "."; then
+        return 0
+    fi
+
+    # 2. Check directory of running script
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+    if [ -n "$script_dir" ] && is_BOLT_directory "$script_dir"; then
+        cd "$script_dir"
+        return 0
+    fi
+
+    # 3. Check known candidate folders
+    local candidate_paths=(
+        "./BOLT" "./BOLT" "./BOLT"
+        "../BOLT" "../BOLT"
+        "$HOME/BOLT" "$HOME/BOLT"
+        "/root/BOLT" "/root/BOLT"
+        "/var/www/BOLT" "/var/www/BOLT"
+        "/opt/BOLT" "/opt/BOLT"
+    )
+
+    for path in "${candidate_paths[@]}"; do
+        if [ -d "$path" ] && is_BOLT_directory "$path"; then
+            cd "$path"
+            log_info "Detected BOLT Panel directory at: ${C_VIBRANT_CYAN}$(pwd)${C_RESET}"
+            return 0
+        fi
+    done
+
+    # 4. Search filesystem
+    local search_result
+    search_result=$(find /root /home /var/www /opt . -maxdepth 3 -type d \( -name "BOLT" -o -name "BOLT" -o -name "BOLT" \) 2>/dev/null | head -n 1)
+    if [ -n "$search_result" ] && is_BOLT_directory "$search_result"; then
+        cd "$search_result"
+        log_info "Located BOLT Panel directory at: ${C_VIBRANT_CYAN}$(pwd)${C_RESET}"
+        return 0
+    fi
+
+    return 1
+}
+
 prepare_repository() {
     log_info "Preparing application workspace..."
 
-    # Check if we are already inside the project workspace
-    if [ -f "package.json" ] && grep -q "BOLT-panel" "package.json" 2>/dev/null; then
+    # Check if we are already inside or can auto-locate existing workspace
+    if ensure_BOLT_directory; then
         PROJECT_DIR="$(pwd)"
-        log_info "Using current workspace directory: ${PROJECT_DIR}"
+        log_info "Using active workspace directory: ${PROJECT_DIR}"
+        git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
     elif [ -d "BOLT" ]; then
         PROJECT_DIR="$(pwd)/BOLT"
         cd "$PROJECT_DIR"
@@ -341,7 +400,7 @@ setup_environment() {
     cat > .env <<EOF
 # ==============================================================================
 # aashi - BOLT PANEL Configuration
-# Credit: vuuletic
+# Credit: Jishnu
 # ==============================================================================
 NODE_ENV=${run_mode}
 PORT=${target_port}
@@ -500,24 +559,52 @@ while true; do
             read -r -p "  Press Enter to return to main menu..." _
             ;;
         3)
-            bash update.sh
+            if [ -f "update.sh" ]; then
+                bash update.sh
+            elif ensure_BOLT_directory && [ -f "update.sh" ]; then
+                bash update.sh
+            else
+                log_error "Could not find BOLT Panel update script."
+            fi
             echo ""
             read -r -p "  Press Enter to return to main menu..." _
             ;;
         4)
-            npm run createuser || (cd BOLT && npm run createuser)
+            ensure_BOLT_directory || true
+            if [ -f "package.json" ]; then
+                npm run createuser
+            elif [ -d "BOLT" ]; then
+                (cd BOLT && npm run createuser)
+            else
+                log_error "BOLT Panel directory not found for user creation."
+            fi
             echo ""
             read -r -p "  Press Enter to return to main menu..." _
             ;;
         5)
+            ensure_BOLT_directory || true
             log_info "Restarting BOLT Panel..."
-            pm2 restart BOLT-panel 2>/dev/null || npx pm2 restart BOLT-panel 2>/dev/null || npm run start:auto-update
+            if command -v pm2 &> /dev/null && pm2 list 2>/dev/null | grep -q "BOLT-panel"; then
+                pm2 restart BOLT-panel
+            elif command -v npx &> /dev/null && npx pm2 list 2>/dev/null | grep -q "BOLT-panel"; then
+                npx pm2 restart BOLT-panel
+            elif command -v systemctl &> /dev/null && systemctl is-active --quiet BOLT-panel 2>/dev/null; then
+                sudo systemctl restart BOLT-panel
+            else
+                npm run start:auto-update 2>/dev/null || (node dist/server.cjs &)
+            fi
             log_success "Panel service restarted."
             echo ""
             read -r -p "  Press Enter to return to main menu..." _
             ;;
         6)
-            bash uninstall.sh
+            if [ -f "uninstall.sh" ]; then
+                bash uninstall.sh
+            elif ensure_BOLT_directory && [ -f "uninstall.sh" ]; then
+                bash uninstall.sh
+            else
+                bash <(curl -fsSL https://raw.githubusercontent.com/JishnuTheGamer/BOLT/main/uninstall.sh 2>/dev/null) || true
+            fi
             exit 0
             ;;
         7)

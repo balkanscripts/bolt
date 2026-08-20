@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react"; 
 import { LoadingOverlay } from "../components/LoadingOverlay";
+import DeleteServerModal from "./DeleteServerModal";
 import { Trash2, AlertTriangle, User, Save, Globe, RefreshCw, Sliders, Code2, TerminalSquare, Info, Lock, Download } from "lucide-react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -27,6 +28,7 @@ export default function ServerSettings({ serverId, server }: { serverId: string,
   const [dockerImage, setDockerImage] = useState(server?.dockerImage || "");
   const [serverJar, setServerJar] = useState(server?.serverJar || "");
   const [startupCommand, setStartupCommand] = useState(server?.startupCommand || "");
+  const [ignoreWorldDataVersion, setIgnoreWorldDataVersion] = useState(!!server?.ignoreWorldDataVersion);
   const [showDowngradeRestartPopup, setShowDowngradeRestartPopup] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
   const [isMigratingRuntime, setIsMigratingRuntime] = useState(false);
@@ -44,6 +46,7 @@ export default function ServerSettings({ serverId, server }: { serverId: string,
       setDockerImage(server.dockerImage || "");
       setServerJar(server.serverJar || "");
       setStartupCommand(server.startupCommand || "");
+      setIgnoreWorldDataVersion(!!server.ignoreWorldDataVersion);
       setOwner(server.owner || "");
       setIpAlias(server.ipAlias || "");
     }
@@ -99,7 +102,8 @@ export default function ServerSettings({ serverId, server }: { serverId: string,
         javaVersion,
         dockerImage,
         startupCommand,
-        serverJar
+        serverJar,
+        ignoreWorldDataVersion
       });
       setVersionProgress(100);
       setTimeout(() => {
@@ -256,7 +260,7 @@ export default function ServerSettings({ serverId, server }: { serverId: string,
                               setMigrationMessage(null);
                               setShowMigrateConfirm(false);
                               try {
-                                const token = localStorage.getItem("jtg_token") || localStorage.getItem("token");
+                                const token = localStorage.getItem("bolt_token") || localStorage.getItem("token");
                                 const headers: any = {};
                                 if (token) headers["Authorization"] = `Bearer ${token}`;
                                 const res = await axios.put(`/api/servers/${serverId}/migrate-runtime`, { targetRuntime: target }, { headers });
@@ -493,6 +497,26 @@ export default function ServerSettings({ serverId, server }: { serverId: string,
                         className="w-full bg-card border border-border focus:border-theme-600 rounded-xl px-4 py-3 text-foreground transition-all outline-none font-mono text-sm"
                       />
                     </div>
+                    <div className="md:col-span-2 mt-2 pt-3 border-t border-border/40">
+                      <label className="flex items-start gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={ignoreWorldDataVersion}
+                          onChange={(e) => setIgnoreWorldDataVersion(e.target.checked)}
+                          disabled={isChangingVersion}
+                          className="mt-1 w-4 h-4 rounded border-border text-theme-600 focus:ring-theme-500 bg-card cursor-pointer"
+                        />
+                        <div>
+                          <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                            Bypass World DataVersion Safety Check (Paper.IgnoreWorldDataVersion)
+                          </span>
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                            Allows loading Minecraft worlds created with newer/different versions without Paper stopping the server. <strong className="text-rose-400 font-semibold">Warning:</strong> Enabling this flag can lead to chunk and entity data corruption if the world format is incompatible.
+                          </p>
+                        </div>
+                      </label>
+                    </div>
                   </div>
                   
                   <div className="flex justify-end gap-3 mt-4">
@@ -562,7 +586,7 @@ export default function ServerSettings({ serverId, server }: { serverId: string,
             {(user?.role === "admin" || user?.role === "owner") ? (
               <>
 
-                <div className="bg-black/40 dark:bg-black/40 backdrop-blur-xl border border-border p-6 md:p-8 rounded-3xl shadow-[0_0_40px_-15px_rgba(0,0,0,0.5)] ring-1 ring-border-subtle relative z-10 group hover:bg-black/60 transition-colors">
+                <div className="bg-black/40 dark:bg-black/40 backdrop-blur-xl border border-border p-6 md:p-8 rounded-3xl shadow-[0_0_40px_-15px_rgba(0,0,0,0.5)] ring-1 ring-border-subtle relative z-10 group hover:bg-black/60 transition-colors mb-8">
                   <h3 className="text-theme-500 font-bold mb-2 flex items-center">
                     <User className="w-5 h-5 mr-2" /> Server Ownership
                   </h3>
@@ -591,6 +615,28 @@ export default function ServerSettings({ serverId, server }: { serverId: string,
                 </div>
               </>
             ) : null}
+
+            {/* DANGER ZONE - DELETE SERVER */}
+            {(user?.role === "admin" || user?.role === "owner" || server.owner === user?.id) && (
+              <div className="bg-red-950/20 backdrop-blur-xl border border-red-500/30 p-6 md:p-8 rounded-3xl shadow-[0_0_40px_-15px_rgba(239,68,68,0.2)] ring-1 ring-red-500/20 relative z-10">
+                <div className="flex items-start justify-between gap-4 flex-col sm:flex-row">
+                  <div>
+                    <h3 className="text-red-400 font-bold mb-1 flex items-center gap-2">
+                      <Trash2 className="w-5 h-5 text-red-500" /> Danger Zone: Delete Server
+                    </h3>
+                    <p className="text-muted-foreground text-sm max-w-xl">
+                      Permanently terminate and delete this server instance. All world saves, files, and configurations will be removed immediately.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-red-600/20 active:scale-95 flex items-center gap-2 shrink-0"
+                  >
+                    <Trash2 className="w-4 h-4" /> Delete Server
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         ) : (
            <div className="text-muted-foreground text-sm p-4 bg-muted rounded-xl border border-border-subtle">
@@ -598,7 +644,22 @@ export default function ServerSettings({ serverId, server }: { serverId: string,
            </div>
         )}
       </div>
-          {(isDeletingAction || isSaving || isSavingAlias || isChangingVersion || isRestarting) && <LoadingOverlay />}
+
+      <DeleteServerModal
+        isOpen={showDeleteConfirm}
+        server={server}
+        onClose={() => setShowDeleteConfirm(false)}
+        onSuccess={() => {
+          setShowDeleteConfirm(false);
+          navigate("/servers");
+        }}
+      />
+
+      {isSaving && <LoadingOverlay message="Saving Ownership..." subMessage="Updating server assignment permissions..." />}
+      {isSavingAlias && <LoadingOverlay message="Saving IP Alias..." subMessage="Registering domain alias configuration..." />}
+      {isChangingVersion && <LoadingOverlay message="Updating Server Runtime..." subMessage="Installing dependencies and software version..." progress={versionProgress} />}
+      {isRestarting && <LoadingOverlay message="Restarting Server..." subMessage="Applying configuration and booting runtime..." />}
+      {isRedownloadingJar && <LoadingOverlay message="Re-downloading Server JAR..." subMessage="Fetching binary from official mirror..." />}
     </div>
     </>
   );
