@@ -36,7 +36,7 @@ echo ""
 
 # Workspace verification
 if [ ! -f "package.json" ]; then
-    if [ -d "Jtg" ]; then
+    if [ -d "BOLT" ]; then
         cd Jtg
     else
         echo -e " ${C_CRIMSON}[✗ ERROR]${C_RESET} package.json not found. Please run this script from inside the BOLT directory."
