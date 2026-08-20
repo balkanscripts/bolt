@@ -1,6 +1,6 @@
-# JTG Panel 🚀
+# BOLT Panel 🚀
 
-Welcome to **JTG Panel**, a game server management & container orchestration platform built for Minecraft and generic game servers.
+Welcome to **BOLT Panel**, a game server management & container orchestration platform built for Minecraft and generic game servers.
 
 **Created & Maintained by [vuuletic](https://github.com/balkanscripts)**  
 **Version:** `v2.2`
